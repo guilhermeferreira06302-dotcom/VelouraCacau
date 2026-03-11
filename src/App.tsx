@@ -139,7 +139,7 @@ export default function App() {
   const [qtd, setQtd] = useState(50);
   const [taxa, setTaxa] = useState(10);
 
-  const checkoutUrl = activeTab === "PLANILHA" ? "/api/checkout-planilha" : "/api/checkout-receita";
+  const checkoutUrl = activeTab === "PLANILHA" ? "https://pay.kiwify.com.br/d8V3e4z" : "https://pay.kiwify.com.br/DS4eSZD";
 
   // Memoize particles to avoid re-calculation on every render
   const particles = useMemo(() => {
