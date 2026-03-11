@@ -21,11 +21,6 @@ async function startServer() {
     res.redirect("https://pay.kiwify.com.br/d8V3e4z");
   });
 
-  app.get("/api/checkout", (req, res) => {
-    // Default fallback (can be recipe or spreadsheet)
-    res.redirect("https://pay.kiwify.com.br/DS4eSZD");
-  });
-
   app.get("/api/health", (req, res) => {
     res.json({ status: "ok" });
   });

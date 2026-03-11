@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
+import React, { useState, useRef, useMemo, Suspense, lazy } from 'react';
 import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'framer-motion';
 import { Star, BarChart3, Smartphone, TrendingUp, Terminal, BookOpen } from 'lucide-react';
 
