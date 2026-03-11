@@ -1,0 +1,106 @@
+@import "tailwindcss";
+
+@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Montserrat:wght@300;400;500;600;700&display=swap');
+
+@theme {
+  --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
+  --font-serif: "Cormorant Garamond", serif;
+
+  --color-marrom-profundo: #1A0A04;
+  --color-marrom-base: #2C1A0E;
+  --color-marrom-suave: #3D2010;
+  --color-dourado: #C9A84C;
+  --color-dourado-brilho: #F0D080;
+  --color-dourado-sombra: #9A7A2A;
+  --color-bege: #F5ECD7;
+  --color-bege-claro: #FDF8F0;
+  --color-sucesso: #22C55E;
+}
+
+:root {
+  --marrom-profundo: #1A0A04;
+  --marrom-base: #2C1A0E;
+  --marrom-suave: #3D2010;
+  --dourado: #C9A84C;
+  --dourado-brilho: #F0D080;
+  --dourado-sombra: #9A7A2A;
+  --branco: #FFFFFF;
+  --bege: #F5ECD7;
+  --bege-claro: #FDF8F0;
+  --sucesso: #22C55E;
+  
+  /* Glass Button GOLD Variables */
+  --primary-gradient-gold: radial-gradient(67.54% 100.03% at 50% 0%, #FDF8F0 0%, #F0D080 25.48%, #C9A84C 62.5%, #9A7A2A 100%);
+  --button-shadow-gold: 0 5.98px 23.203px 0 rgba(201, 168, 76, 0.20), 0 14.352px 53.701px 0 rgba(201, 168, 76, 0.50);
+}
+
+@layer base {
+  body {
+    @apply bg-marrom-profundo text-white font-sans antialiased;
+    line-height: 1.6;
+  }
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(110vh) scale(0); opacity: 0; }
+  20% { opacity: 0.2; }
+  80% { opacity: 0.1; }
+  100% { transform: translateY(-10vh) scale(1.5); opacity: 0; }
+}
+
+@keyframes brilho {
+  0% { opacity: 0; left: -180px; }
+  20% { opacity: 0.5; }
+  50% { opacity: 0.8; left: 50%; }
+  80% { opacity: 0.5; }
+  100% { opacity: 0; left: 150%; }
+}
+
+@keyframes rotacaodegrade {
+  from { transform: translate(-50%, -50%) rotate(0deg); }
+  to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+
+.particle {
+  @apply absolute rounded-full pointer-events-none;
+  background: radial-gradient(circle, var(--dourado-brilho) 0%, transparent 70%);
+  opacity: 0.15;
+  animation: floatUp linear infinite;
+  will-change: transform;
+}
+
+.botao-mvm {
+  @apply flex items-center justify-center relative px-8 py-4 md:px-12 md:py-6 text-marrom-profundo no-underline text-base md:text-xl font-extrabold overflow-hidden cursor-pointer tracking-wider rounded-[14px] md:rounded-[18px];
+  background: var(--primary-gradient-gold);
+  border: 1.196px solid rgba(255, 255, 255, 0.4);
+  box-shadow: var(--button-shadow-gold);
+  transition: all 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.botao-mvm::before {
+  content: "";
+  @apply h-full w-[120px] absolute top-0 -left-[180px] opacity-0 bg-white pointer-events-none;
+  box-shadow: 0 0 40px 25px #ffffffbb;
+  transform: skewX(-25deg);
+  mix-blend-mode: overlay;
+  animation: brilho 3.5s linear infinite;
+}
+
+.botao-mvm:hover {
+  filter: brightness(1.05) saturate(1.1);
+  transform: translateY(-8px);
+  box-shadow: 0 10px 30px 0 rgba(201, 168, 76, 0.3), 0 20px 60px 0 rgba(201, 168, 76, 0.6);
+}
+
+.card-animated-wrapper {
+  @apply relative rounded-[30px] overflow-hidden p-[2px] z-10;
+}
+
+.card-animated-wrapper::before {
+  @apply absolute -z-10 content-[""] top-1/2 left-1/2 blur-[15px] w-[800px] h-[800px];
+  transform: translate(-50%, -50%);
+  background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, var(--dourado) 60deg, transparent 60.1deg), 
+              conic-gradient(from 0deg at 50% 50%, transparent 190deg, var(--dourado) 250deg, transparent 250.1deg);
+  animation: rotacaodegrade 10s linear infinite;
+  will-change: transform;
+}
