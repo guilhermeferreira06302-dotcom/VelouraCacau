@@ -1,7 +1,5 @@
 @import "tailwindcss";
 
-@import url('https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,400;1,600&family=Montserrat:wght@300;400;500;600;700&display=swap');
-
 @theme {
   --font-sans: "Montserrat", ui-sans-serif, system-ui, sans-serif;
   --font-serif: "Cormorant Garamond", serif;
@@ -66,7 +64,6 @@
   background: radial-gradient(circle, var(--dourado-brilho) 0%, transparent 70%);
   opacity: 0.15;
   animation: floatUp linear infinite;
-  will-change: transform;
 }
 
 .botao-mvm {
@@ -102,5 +99,4 @@
   background: conic-gradient(from 0deg at 50% 50%, transparent 0deg, var(--dourado) 60deg, transparent 60.1deg), 
               conic-gradient(from 0deg at 50% 50%, transparent 190deg, var(--dourado) 250deg, transparent 250.1deg);
   animation: rotacaodegrade 10s linear infinite;
-  will-change: transform;
 }

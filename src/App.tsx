@@ -3,10 +3,13 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo, Suspense, lazy } from 'react';
 import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'framer-motion';
-import { Star, Quote, Calculator, BarChart3, Smartphone, TrendingUp, CheckCircle2, Layout, Box, Terminal, BookOpen, Mail, Play } from 'lucide-react';
-import { InfiniteMovingCards } from './components/InfiniteMovingCards';
+import { Star, BarChart3, Smartphone, TrendingUp, Terminal, BookOpen } from 'lucide-react';
+
+// Lazy load heavy components to minimize main-thread work during initial load
+const InfiniteMovingCards = lazy(() => import('./components/InfiniteMovingCards').then(module => ({ default: module.InfiniteMovingCards })));
+const Calculator = lazy(() => import('./components/Calculator').then(module => ({ default: module.Calculator })));
 
 /**
  * Utilitário para mesclar classes Tailwind
@@ -15,48 +18,11 @@ function cn(...classes: (string | boolean | undefined)[]) {
   return classes.filter(Boolean).join(" ");
 }
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState("RECEITA");
-  const [custo, setCusto] = useState(18);
-  const [venda, setVenda] = useState(55);
-  const [qtd, setQtd] = useState(50);
-  const [taxa, setTaxa] = useState(10);
-
-  const [lucroUni, setLucroUni] = useState(0);
-  const [lucroTotal, setLucroTotal] = useState(0);
-  const [margem, setMargem] = useState(0);
-
-  useEffect(() => {
-    const valorTaxa = venda * (taxa / 100);
-    const lUni = venda - custo - valorTaxa;
-    const lTotal = lUni * qtd;
-    const m = venda > 0 ? (lUni / venda) * 100 : 0;
-
-    setLucroUni(lUni);
-    setLucroTotal(lTotal);
-    setMargem(m);
-  }, [custo, venda, qtd, taxa]);
-
-  const formatCurrency = (value: number) => {
-    return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
-  };
-
-  const checkoutUrl = activeTab === "PLANILHA" ? "/api/checkout-planilha" : "/api/checkout-receita";
-
-  // Particles generation
-  const [particles, setParticles] = useState<any[]>([]);
-  useEffect(() => {
-    const newParticles = Array.from({ length: 25 }).map((_, i) => ({
-      id: i,
-      size: Math.random() * 40 + 10,
-      left: Math.random() * 100,
-      duration: Math.random() * 10 + 10,
-      delay: Math.random() * 10,
-    }));
-    setParticles(newParticles);
-  }, []);
-
-  // Tilt effect for hero card
+/**
+ * Componente para o card interativo da planilha
+ * Refatorado para evitar erro de hidratação do useScroll quando não renderizado
+ */
+const PlanilhaHeroCard = () => {
   const cardRef = useRef<HTMLDivElement>(null);
   const [rotateX, setRotateX] = useState(0);
   const [rotateY, setRotateY] = useState(0);
@@ -79,7 +45,6 @@ export default function App() {
     setScale(1);
   };
 
-  // Scroll animation for the card
   const { scrollYProgress } = useScroll({
     target: cardRef,
     offset: ["start end", "center center"]
@@ -91,6 +56,101 @@ export default function App() {
 
   const springScale = useSpring(scrollScale, { stiffness: 100, damping: 30 });
   const springRotateX = useSpring(scrollRotateX, { stiffness: 100, damping: 30 });
+
+  return (
+    <motion.div
+      className="relative w-full max-w-[850px] [perspective:1000px] flex flex-col items-center justify-center mx-auto mb-6 md:mb-10"
+      ref={cardRef}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      style={{
+        scale: springScale,
+        rotateX: springRotateX,
+        opacity: scrollOpacity
+      }}
+    >
+      <div
+        className="relative w-full transition-transform duration-150 ease-out"
+        style={{
+          transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`,
+          transformStyle: 'preserve-3d',
+        }}
+      >
+        <div className="bg-[#1e110a] rounded-[20px] border border-dourado/30 shadow-[0_50px_100px_rgba(0,0,0,0.8)] overflow-hidden">
+          <div className="bg-gradient-to-r from-marrom-base to-marrom-suave p-4 flex items-center border-b border-dourado/20">
+            <div className="flex gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#FF5F57]"></div>
+              <div className="w-3 h-3 rounded-full bg-[#FEBC2E]"></div>
+              <div className="w-3 h-3 rounded-full bg-[#28C840]"></div>
+            </div>
+          </div>
+          
+          <div className="flex bg-black/20 px-2.5">
+            <div className="px-5 py-3 text-[11px] text-dourado border-b-2 border-dourado bg-dourado/5 font-semibold cursor-pointer">Calculadora de Preço</div>
+            <div className="px-5 py-3 text-[11px] text-white/60 border-b-2 border-transparent font-semibold cursor-pointer">Gestão de Insumos</div>
+            <div className="px-5 py-3 text-[11px] text-white/60 border-b-2 border-transparent font-semibold cursor-pointer">Relatório Final</div>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse text-xs text-left">
+              <thead>
+                <tr>
+                  <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Insumo</th>
+                  <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Qtd/Ovo</th>
+                  <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Custo (R$)</th>
+                  <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Preço Venda</th>
+                  <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Lucro</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-white/5 text-white/80">
+                  <td className="p-2 md:p-3.5">Chocolate Belga</td>
+                  <td className="p-2 md:p-3.5">350g</td>
+                  <td className="p-2 md:p-3.5">R$ 12,40</td>
+                  <td className="p-2 md:p-3.5">—</td>
+                  <td className="p-2 md:p-3.5">—</td>
+                </tr>
+                <tr className="border-b border-white/5 text-white/80">
+                  <td className="p-2 md:p-3.5">Embalagem Luxury</td>
+                  <td className="p-2 md:p-3.5">1 un</td>
+                  <td className="p-2 md:p-3.5">R$ 4,50</td>
+                  <td className="p-2 md:p-3.5">—</td>
+                  <td className="p-2 md:p-3.5">—</td>
+                </tr>
+                <tr className="bg-dourado/10 font-bold text-white/80">
+                  <td className="p-2 md:p-3.5">TOTAL POR OVO</td>
+                  <td className="p-2 md:p-3.5">—</td>
+                  <td className="p-2 md:p-3.5 text-sucesso">R$ 16,90</td>
+                  <td className="p-2 md:p-3.5 text-dourado">R$ 55,00</td>
+                  <td className="p-2 md:p-3.5 text-sucesso">R$ 38,10</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+export default function App() {
+  const [activeTab, setActiveTab] = useState("RECEITA");
+  const [custo, setCusto] = useState(18);
+  const [venda, setVenda] = useState(55);
+  const [qtd, setQtd] = useState(50);
+  const [taxa, setTaxa] = useState(10);
+
+  const checkoutUrl = activeTab === "PLANILHA" ? "/api/checkout-planilha" : "/api/checkout-receita";
+
+  // Memoize particles to avoid re-calculation on every render
+  const particles = useMemo(() => {
+    return Array.from({ length: 25 }).map((_, i) => ({
+      id: i,
+      size: Math.random() * 40 + 10,
+      left: Math.random() * 100,
+      duration: Math.random() * 10 + 10,
+      delay: Math.random() * 10,
+    }));
+  }, []);
 
   return (
     <div className="relative min-h-screen overflow-x-hidden bg-marrom-profundo">
@@ -117,7 +177,7 @@ export default function App() {
                   "outline-none focus:outline-none flex items-center justify-center tracking-[2px]",
                   isActive 
                     ? "text-white" 
-                    : "text-white/45 hover:text-white/80"
+                    : "text-white/60 hover:text-white/80"
                 )}
               >
                 <span className="relative z-10 hidden md:inline">{item.name}</span>
@@ -224,77 +284,7 @@ export default function App() {
             </motion.p>
 
             {/* Tilted Card */}
-            <motion.div
-              className="relative w-full max-w-[850px] [perspective:1000px] flex flex-col items-center justify-center mx-auto mb-6 md:mb-10"
-              ref={cardRef}
-              onMouseMove={handleMouseMove}
-              onMouseLeave={handleMouseLeave}
-              style={{
-                scale: springScale,
-                rotateX: springRotateX,
-                opacity: scrollOpacity
-              }}
-            >
-              <div
-                className="relative w-full transition-transform duration-150 ease-out"
-                style={{
-                  transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`,
-                  transformStyle: 'preserve-3d',
-                }}
-              >
-                <div className="bg-[#1e110a] rounded-[20px] border border-dourado/30 shadow-[0_50px_100px_rgba(0,0,0,0.8)] overflow-hidden">
-                  <div className="bg-gradient-to-r from-marrom-base to-marrom-suave p-4 flex items-center border-b border-dourado/20">
-                    <div className="flex gap-2">
-                      <div className="w-3 h-3 rounded-full bg-[#FF5F57]"></div>
-                      <div className="w-3 h-3 rounded-full bg-[#FEBC2E]"></div>
-                      <div className="w-3 h-3 rounded-full bg-[#28C840]"></div>
-                    </div>
-                  </div>
-                  
-                  <div className="flex bg-black/20 px-2.5">
-                    <div className="px-5 py-3 text-[11px] text-dourado border-b-2 border-dourado bg-dourado/5 font-semibold cursor-pointer">Calculadora de Preço</div>
-                    <div className="px-5 py-3 text-[11px] text-white/40 border-b-2 border-transparent font-semibold cursor-pointer">Gestão de Insumos</div>
-                    <div className="px-5 py-3 text-[11px] text-white/40 border-b-2 border-transparent font-semibold cursor-pointer">Relatório Final</div>
-                  </div>
-                  <div className="overflow-x-auto">
-                    <table className="w-full border-collapse text-xs text-left">
-                      <thead>
-                        <tr>
-                          <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Insumo</th>
-                          <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Qtd/Ovo</th>
-                          <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Custo (R$)</th>
-                          <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Preço Venda</th>
-                          <th className="bg-dourado text-marrom-profundo p-2 md:p-3.5 font-bold uppercase">Lucro</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <tr className="border-b border-white/5 text-white/80">
-                          <td className="p-2 md:p-3.5">Chocolate Belga</td>
-                          <td className="p-2 md:p-3.5">350g</td>
-                          <td className="p-2 md:p-3.5">R$ 12,40</td>
-                          <td className="p-2 md:p-3.5">—</td>
-                          <td className="p-2 md:p-3.5">—</td>
-                        </tr>
-                        <tr className="border-b border-white/5 text-white/80">
-                          <td className="p-2 md:p-3.5">Embalagem Luxury</td>
-                          <td className="p-2 md:p-3.5">1 un</td>
-                          <td className="p-2 md:p-3.5">R$ 4,50</td>
-                          <td className="p-2 md:p-3.5">—</td>
-                          <td className="p-2 md:p-3.5">—</td>
-                        </tr>
-                        <tr className="bg-dourado/10 font-bold text-white/80">
-                          <td className="p-2 md:p-3.5">TOTAL POR OVO</td>
-                          <td className="p-2 md:p-3.5">—</td>
-                          <td className="p-2 md:p-3.5 text-sucesso">R$ 16,90</td>
-                          <td className="p-2 md:p-3.5 text-dourado">R$ 55,00</td>
-                          <td className="p-2 md:p-3.5 text-sucesso">R$ 38,10</td>
-                        </tr>
-                      </tbody>
-                    </table>
-                  </div>
-                </div>
-              </div>
-            </motion.div>
+            <PlanilhaHeroCard />
           </>
         ) : (
           <motion.div
@@ -308,6 +298,8 @@ export default function App() {
               alt="Receita Preview" 
               className="w-full h-auto"
               referrerPolicy="no-referrer"
+              width={850}
+              height={478}
             />
           </motion.div>
         )}
@@ -388,106 +380,57 @@ export default function App() {
                 <h2 className="font-serif text-3xl md:text-5xl font-bold leading-tight text-white">Histórias de <em className="italic not-italic">Sucesso</em></h2>
               </div>
 
-              <InfiniteMovingCards
-                items={[
-                  {
-                    name: "Mariana Silva",
-                    title: "Confeiteira Artesanal",
-                    quote: "Eu vendia muito mas não via a cor do dinheiro. Com a planilha descobri que estava a cobrar errado nos ovos recheados. Na primeira semana já ajustei tudo e o meu lucro dobrou.",
-                    initial: "M",
-                    image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=150&h=150"
-                  },
-                  {
-                    name: "Ana Paula",
-                    title: "Empreendedora",
-                    quote: "O que mais gostei foi a simplicidade. Não percebo nada de Excel, mas é só preencher os campos a azul e o cálculo aparece logo. Ganhei horas de descanso nesta Páscoa.",
-                    initial: "A",
-                    image: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=150&h=150"
-                  },
-                  {
-                    name: "Carla Mendes",
-                    title: "Doces de Elite",
-                    quote: "Fiz a simulação e bati a minha meta de 80 ovos com 45% de margem real. Pela primeira vez tenho a certeza de que o meu negócio é lucrativo.",
-                    initial: "C",
-                    image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=150&h=150"
-                  },
-                  {
-                    name: "Fernanda Oliveira",
-                    title: "Cake Designer",
-                    quote: "A planilha é intuitiva e me deu a segurança que eu precisava para investir em insumos melhores sem medo de perder margem.",
-                    initial: "F",
-                    image: "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&q=80&w=150&h=150"
-                  }
-                ]}
-                direction="left"
-                speed="slow"
-              />
+              <Suspense fallback={<div className="h-40 flex items-center justify-center text-dourado/80">Carregando depoimentos...</div>}>
+                <InfiniteMovingCards
+                  items={[
+                    {
+                      name: "Mariana Silva",
+                      title: "Confeiteira Artesanal",
+                      quote: "Eu vendia muito mas não via a cor do dinheiro. Com a planilha descobri que estava a cobrar errado nos ovos recheados. Na primeira semana já ajustei tudo e o meu lucro dobrou.",
+                      initial: "M",
+                      image: "https://images.unsplash.com/photo-1556910103-1c02745aae4d?auto=format&fit=crop&q=80&w=150&h=150"
+                    },
+                    {
+                      name: "Ana Paula",
+                      title: "Empreendedora",
+                      quote: "O que mais gostei foi a simplicidade. Não percebo nada de Excel, mas é só preencher os campos a azul e o cálculo aparece logo. Ganhei horas de descanso nesta Páscoa.",
+                      initial: "A",
+                      image: "https://images.unsplash.com/photo-1581092160562-40aa08e78837?auto=format&fit=crop&q=80&w=150&h=150"
+                    },
+                    {
+                      name: "Carla Mendes",
+                      title: "Doces de Elite",
+                      quote: "Fiz a simulação e bati a minha meta de 80 ovos com 45% de margem real. Pela primeira vez tenho a certeza de que o meu negócio é lucrativo.",
+                      initial: "C",
+                      image: "https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&q=80&w=150&h=150"
+                    },
+                    {
+                      name: "Fernanda Oliveira",
+                      title: "Cake Designer",
+                      quote: "A planilha é intuitiva e me deu a segurança que eu precisava para investir em insumos melhores sem medo de perder margem.",
+                      initial: "F",
+                      image: "https://images.unsplash.com/photo-1595152772835-219674b2a8a6?auto=format&fit=crop&q=80&w=150&h=150"
+                    }
+                  ]}
+                  direction="left"
+                  speed="slow"
+                />
+              </Suspense>
             </section>
 
             {/* Calculator Section */}
-            <section id="calculator" className="relative py-6 md:py-20 px-5">
-              <div className="text-center max-w-2xl mx-auto mb-10 md:mb-12">
-                <span className="text-xs md:text-sm font-bold tracking-[1px] text-dourado uppercase mb-3 block">Simulador</span>
-                <h2 className="font-serif text-4xl md:text-6xl font-bold leading-tight text-white mb-4">Veja seu <em className="text-dourado italic not-italic">Potencial</em></h2>
-              </div>
-
-              <div className="card-animated-wrapper max-w-3xl mx-auto">
-                <div className="bg-marrom-profundo/95 p-4 md:p-12 rounded-[20px] md:rounded-[28px] backdrop-blur-xl">
-                  <div className="grid grid-cols-2 md:grid-cols-2 gap-3 md:gap-6 mb-6 md:mb-10">
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-dourado">Custo / Un (R$)</label>
-                      <input
-                        type="number"
-                        value={custo}
-                        onChange={(e) => setCusto(Number(e.target.value))}
-                        className="bg-white/5 border border-white/10 p-2.5 md:p-4 rounded-lg text-white font-sans text-xs md:text-base outline-none focus:border-dourado focus:bg-dourado/10 transition-all"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-dourado">Venda / Un (R$)</label>
-                      <input
-                        type="number"
-                        value={venda}
-                        onChange={(e) => setVenda(Number(e.target.value))}
-                        className="bg-white/5 border border-white/10 p-2.5 md:p-4 rounded-lg text-white font-sans text-xs md:text-base outline-none focus:border-dourado focus:bg-dourado/10 transition-all"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-dourado">Meta (un)</label>
-                      <input
-                        type="number"
-                        value={qtd}
-                        onChange={(e) => setQtd(Number(e.target.value))}
-                        className="bg-white/5 border border-white/10 p-2.5 md:p-4 rounded-lg text-white font-sans text-xs md:text-base outline-none focus:border-dourado focus:bg-dourado/10 transition-all"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-1.5">
-                      <label className="text-[9px] md:text-[11px] font-bold uppercase tracking-wider text-dourado">Taxas (%)</label>
-                      <input
-                        type="number"
-                        value={taxa}
-                        onChange={(e) => setTaxa(Number(e.target.value))}
-                        className="bg-white/5 border border-white/10 p-2.5 md:p-4 rounded-lg text-white font-sans text-xs md:text-base outline-none focus:border-dourado focus:bg-dourado/10 transition-all"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 md:grid-cols-3 gap-2 md:gap-5 pt-6 md:pt-10 border-t border-white/10">
-                    <div className="text-center">
-                      <div className="text-[8px] md:text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1 md:mb-2">Lucro / Un</div>
-                      <div className="font-serif text-sm md:text-3xl font-bold text-dourado">{formatCurrency(lucroUni)}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-[8px] md:text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1 md:mb-2">Lucro Total</div>
-                      <div className="font-serif text-sm md:text-3xl font-bold text-sucesso">{formatCurrency(lucroTotal)}</div>
-                    </div>
-                    <div className="text-center">
-                      <div className="text-[8px] md:text-[10px] font-semibold text-white/40 uppercase tracking-wider mb-1 md:mb-2">Margem</div>
-                      <div className="font-serif text-sm md:text-3xl font-bold text-dourado">{margem.toFixed(1)}%</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <Suspense fallback={<div className="h-40 flex items-center justify-center text-dourado/80">Carregando simulador...</div>}>
+              <Calculator
+                custo={custo}
+                setCusto={setCusto}
+                venda={venda}
+                setVenda={setVenda}
+                qtd={qtd}
+                setQtd={setQtd}
+                taxa={taxa}
+                setTaxa={setTaxa}
+              />
+            </Suspense>
 
               <div className="flex flex-col items-center gap-7 mt-14">
                 <div className="reflection-wrapper">
@@ -501,7 +444,6 @@ export default function App() {
                   </a>
                 </div>
               </div>
-            </section>
           </motion.div>
         ) : (
           <motion.div
@@ -556,40 +498,42 @@ export default function App() {
                 <h2 className="font-serif text-3xl md:text-5xl font-bold leading-tight text-white">O que dizem as <em className="italic not-italic">Confeiteiras</em></h2>
               </div>
 
-              <InfiniteMovingCards
-                items={[
-                  {
-                    name: "Juliana Costa",
-                    title: "Confeiteira Gourmet",
-                    quote: "As receitas da Veloura são de outro nível. O sabor e a textura do chocolate são perfeitos. Meus clientes ficaram encantados com o toque único dos ovos deste ano.",
-                    initial: "J",
-                    image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150&h=150"
-                  },
-                  {
-                    name: "Renata Lima",
-                    title: "Chef de Doces",
-                    quote: "O passo a passo é tão detalhado que até quem está começando consegue fazer. A técnica de temperagem explicada salvou minha produção. Zero desperdício e muito brilho!",
-                    initial: "R",
-                    image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150"
-                  },
-                  {
-                    name: "Beatriz Soares",
-                    title: "Ateliê de Chocolate",
-                    quote: "Nunca tinha conseguido um acabamento tão profissional. As dicas de finalização de luxo transformaram meus ovos em verdadeiras joias. Vendi toda a minha agenda!",
-                    initial: "B",
-                    image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150&h=150"
-                  },
-                  {
-                    name: "Camila Rocha",
-                    title: "Especialista em Ganache",
-                    quote: "A combinação de sabores sugerida é simplesmente divina. O equilíbrio entre o doce e o amargo é o que diferencia a Veloura de tudo que já vi.",
-                    initial: "C",
-                    image: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=150&h=150"
-                  }
-                ]}
-                direction="right"
-                speed="slow"
-              />
+              <Suspense fallback={<div className="h-40 flex items-center justify-center text-dourado/80">Carregando depoimentos...</div>}>
+                <InfiniteMovingCards
+                  items={[
+                    {
+                      name: "Juliana Costa",
+                      title: "Confeiteira Gourmet",
+                      quote: "As receitas da Veloura são de outro nível. O sabor e a textura do chocolate são perfeitos. Meus clientes ficaram encantados com o toque único dos ovos deste ano.",
+                      initial: "J",
+                      image: "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?auto=format&fit=crop&q=80&w=150&h=150"
+                    },
+                    {
+                      name: "Renata Lima",
+                      title: "Chef de Doces",
+                      quote: "O passo a passo é tão detalhado que até quem está começando consegue fazer. A técnica de temperagem explicada salvou minha produção. Zero desperdício e muito brilho!",
+                      initial: "R",
+                      image: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&q=80&w=150&h=150"
+                    },
+                    {
+                      name: "Beatriz Soares",
+                      title: "Ateliê de Chocolate",
+                      quote: "Nunca tinha conseguido um acabamento tão profissional. As dicas de finalização de luxo transformaram meus ovos em verdadeiras joias. Vendi toda a minha agenda!",
+                      initial: "B",
+                      image: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150&h=150"
+                    },
+                    {
+                      name: "Camila Rocha",
+                      title: "Especialista em Ganache",
+                      quote: "A combinação de sabores sugerida é simplesmente divina. O equilíbrio entre o doce e o amargo é o que diferencia a Veloura de tudo que já vi.",
+                      initial: "C",
+                      image: "https://images.unsplash.com/photo-1531746020798-e6953c6e8e04?auto=format&fit=crop&q=80&w=150&h=150"
+                    }
+                  ]}
+                  direction="right"
+                  speed="slow"
+                />
+              </Suspense>
             </section>
 
             {/* Recipe Section (Visual Structure Cloned from Spreadsheet) */}
@@ -611,6 +555,9 @@ export default function App() {
                   alt="Receita de Elite Banner" 
                   className="w-full h-auto"
                   referrerPolicy="no-referrer"
+                  loading="lazy"
+                  width={1024}
+                  height={576}
                 />
               </motion.div>
 
@@ -634,7 +581,7 @@ export default function App() {
       {/* Footer */}
       <footer className="py-14 px-5 text-center bg-[#0D0502] border-t border-dourado/10">
         <div className="font-serif text-2xl tracking-[5px] text-dourado mb-4 uppercase">VELOURA CACAU</div>
-        <p className="text-xs text-white/30">© 2026 Veloura Cacau • Todos os direitos reservados.</p>
+        <p className="text-xs text-white/60">© 2026 Veloura Cacau • Todos os direitos reservados.</p>
       </footer>
     </div>
   );
