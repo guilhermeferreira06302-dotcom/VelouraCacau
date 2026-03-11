@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useRef, useMemo } from 'react';
-import { motion, useScroll, useTransform, useSpring, AnimatePresence, useMotionValue } from 'framer-motion';
+import React, { useState, useEffect, useRef } from 'react';
+import { motion, useScroll, useTransform, useSpring, AnimatePresence } from 'framer-motion';
 import { Star, Quote, Calculator, BarChart3, Smartphone, TrendingUp, CheckCircle2, Layout, Box, Terminal, BookOpen, Mail, Play } from 'lucide-react';
 import { InfiniteMovingCards } from './components/InfiniteMovingCards';
 
@@ -22,57 +22,61 @@ export default function App() {
   const [qtd, setQtd] = useState(50);
   const [taxa, setTaxa] = useState(10);
 
-  const { lucroUni, lucroTotal, margem } = useMemo(() => {
+  const [lucroUni, setLucroUni] = useState(0);
+  const [lucroTotal, setLucroTotal] = useState(0);
+  const [margem, setMargem] = useState(0);
+
+  useEffect(() => {
     const valorTaxa = venda * (taxa / 100);
     const lUni = venda - custo - valorTaxa;
     const lTotal = lUni * qtd;
     const m = venda > 0 ? (lUni / venda) * 100 : 0;
-    return { lucroUni: lUni, lucroTotal: lTotal, margem: m };
+
+    setLucroUni(lUni);
+    setLucroTotal(lTotal);
+    setMargem(m);
   }, [custo, venda, qtd, taxa]);
 
   const formatCurrency = (value: number) => {
     return value.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
   };
 
-  const checkoutUrl = useMemo(() => 
-    activeTab === "PLANILHA" ? "/api/checkout-planilha" : "/api/checkout-receita"
-  , [activeTab]);
+  const checkoutUrl = activeTab === "PLANILHA" ? "/api/checkout-planilha" : "/api/checkout-receita";
 
   // Particles generation
-  const particles = useMemo(() => {
-    return Array.from({ length: 25 }).map((_, i) => ({
+  const [particles, setParticles] = useState<any[]>([]);
+  useEffect(() => {
+    const newParticles = Array.from({ length: 25 }).map((_, i) => ({
       id: i,
       size: Math.random() * 40 + 10,
       left: Math.random() * 100,
       duration: Math.random() * 10 + 10,
       delay: Math.random() * 10,
     }));
+    setParticles(newParticles);
   }, []);
 
-  // Tilt effect for hero card using MotionValues for performance
+  // Tilt effect for hero card
   const cardRef = useRef<HTMLDivElement>(null);
-  const x = useMotionValue(0);
-  const y = useMotionValue(0);
-  const s = useMotionValue(1);
-
-  const rotateX = useSpring(useTransform(y, [-0.5, 0.5], [12, -12]), { stiffness: 150, damping: 20 });
-  const rotateY = useSpring(useTransform(x, [-0.5, 0.5], [-12, 12]), { stiffness: 150, damping: 20 });
-  const scale = useSpring(s, { stiffness: 150, damping: 20 });
+  const [rotateX, setRotateX] = useState(0);
+  const [rotateY, setRotateY] = useState(0);
+  const [scale, setScale] = useState(1);
 
   const handleMouseMove = (e: React.MouseEvent) => {
     if (!cardRef.current) return;
     const rect = cardRef.current.getBoundingClientRect();
-    const offsetX = (e.clientX - rect.left) / rect.width - 0.5;
-    const offsetY = (e.clientY - rect.top) / rect.height - 0.5;
-    x.set(offsetX);
-    y.set(offsetY);
-    s.set(1.05);
+    const offsetX = e.clientX - rect.left - rect.width / 2;
+    const offsetY = e.clientY - rect.top - rect.height / 2;
+    const rotateAmplitude = 12;
+    setRotateX((offsetY / (rect.height / 2)) * -rotateAmplitude);
+    setRotateY((offsetX / (rect.width / 2)) * rotateAmplitude);
+    setScale(1.05);
   };
 
   const handleMouseLeave = () => {
-    x.set(0);
-    y.set(0);
-    s.set(1);
+    setRotateX(0);
+    setRotateY(0);
+    setScale(1);
   };
 
   // Scroll animation for the card
@@ -231,12 +235,10 @@ export default function App() {
                 opacity: scrollOpacity
               }}
             >
-              <motion.div
-                className="relative w-full"
+              <div
+                className="relative w-full transition-transform duration-150 ease-out"
                 style={{
-                  rotateX,
-                  rotateY,
-                  scale,
+                  transform: `rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(${scale})`,
                   transformStyle: 'preserve-3d',
                 }}
               >
@@ -291,44 +293,23 @@ export default function App() {
                     </table>
                   </div>
                 </div>
-              </motion.div>
+              </div>
             </motion.div>
           </>
         ) : (
-          <>
-            <motion.h1
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.4, duration: 0.8 }}
-              className="font-serif text-2xl md:text-6xl lg:text-7xl font-bold leading-tight mb-3 md:mb-5"
-            >
-              A <span className="text-dourado">Receita de Elite</span> para sua Páscoa
-            </motion.h1>
-
-            <motion.p
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 0.7 }}
-              transition={{ delay: 0.6, duration: 0.8 }}
-              className="font-serif text-base md:text-2xl font-light text-white/70 mb-6 md:mb-10 max-w-3xl mx-auto"
-            >
-              Descubra o segredo dos ovos que encantam clientes e garantem o sucesso da sua temporada.
-            </motion.p>
-
-            <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              transition={{ delay: 0.8, duration: 1 }}
-              className="relative w-full max-w-[850px] mx-auto mb-10 overflow-hidden rounded-[20px] border border-dourado/30 shadow-[0_50px_100px_rgba(0,0,0,0.8)]"
-            >
-              <img 
-                src="https://i.imgur.com/hyJpAUQ.jpeg" 
-                alt="Receita Preview" 
-                className="w-full h-auto"
-                referrerPolicy="no-referrer"
-                loading="lazy"
-              />
-            </motion.div>
-          </>
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.4, duration: 1 }}
+            className="relative w-full max-w-[850px] mx-auto mb-10 overflow-hidden rounded-[20px] border border-dourado/30 shadow-[0_50px_100px_rgba(0,0,0,0.8)]"
+          >
+            <img 
+              src="https://i.imgur.com/hyJpAUQ.jpeg" 
+              alt="Receita Preview" 
+              className="w-full h-auto"
+              referrerPolicy="no-referrer"
+            />
+          </motion.div>
         )}
 
         <motion.div
@@ -630,7 +611,6 @@ export default function App() {
                   alt="Receita de Elite Banner" 
                   className="w-full h-auto"
                   referrerPolicy="no-referrer"
-                  loading="lazy"
                 />
               </motion.div>
 
